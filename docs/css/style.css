@@ -1,0 +1,33 @@
+body {
+font-size:14px;
+background:#CCE8CF;
+}
+
+h1 {
+text-align:center;
+}
+
+pre {
+color:darkblue;
+border:3px ridge green;
+background:#DDF9DF;
+padding:4px;
+}
+blockquote {
+border:1px dashed #999;
+padding:3px;
+margin:3px;
+color:#003300;
+}
+table {
+
+}
+code {
+color:darkgreen;
+}
+dl dt {
+line-height:200%;
+}
+strong {
+color:darkred;
+}

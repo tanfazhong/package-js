@@ -1,0 +1,14 @@
+{
+  "name"          : "package-js",
+  "description"   : "Javascript package manager designed for browser env and framework development.",
+  "author"        : "CJ",
+  "version"       : "1.0.1",
+  "main"          : "./bin/build.js",
+  "bin"           : {
+    "build.js":"./bin/build.js"
+  },
+  "dependencies"  : {
+    "uglify-js":">=2.0.0",
+    "uglifycss":"0.0.7"
+  }
+}

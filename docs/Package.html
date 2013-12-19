@@ -1,0 +1,831 @@
+<!doctype html>
+<html>
+<head>
+<title>JS Package 文档</title>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<link href="css/style.css" rel="stylesheet" type="text/css" />
+<link href="css/shCoreDefault.css" rel="stylesheet" type="text/css" />
+<script src="js/shCore.js"></script>
+<script src="js/shBrushJScript.js"></script>
+<script src="js/shBrushXml.js"></script>
+</head>
+<body>
+<h1>JS Package 文档</h1>
+
+<h2>大纲</h2>
+<ol>
+   <li><a href="#basic-concepts">基本概念</a></li>
+   <li><a href="#js-package-extend-concpets">JS Package 扩展概念</a></li>
+   <li><a href="#package-api">Package API</a></li>
+   <li><a href="#package-examples">Package Examples</a></li>
+   <li><a href="#package-build-concepts">Package Build概念</a></li>
+   <li><a href="#package-build-tools-config">Package Build工具及配置</a></li>
+   <li><a href="#dev-debug-mode">开发模式调试及部署</a></li>
+</ol>
+
+
+<h3><a name="basic-concepts">基本概念</a></h3>
+
+<dl>
+    <dt>一个Package声明的元信息：</dt>
+    <dd>
+        <table border="1">
+            <tr>
+                <th>id(必须)</th>
+                <td>
+                    Package的全局标识，它必须是全局唯一的，通过此名称指定加载此包。
+                    一个Package只有一个id。
+                    <dl>
+                        <dt>id由namespace与name组成</dt>
+                        <dd>
+                            命名空间的概念类似于文件路径，由空间名和分隔符组成。
+                        </dd>
+                        <dd>
+                            常见的命名空间形式以"."作为分隔符。如：
+                            <blockquote>
+                                Root.sub.inner.Foo
+                            </blockquote>
+                            表示Foo标识在Root.sub.inner命名空间下
+                        </dd>
+                    </dl>
+                </td>
+            </tr>
+            <tr>
+                <th>body(必须)</th>
+                <td>Package声明的内容体</td>
+            </tr>
+            <tr>
+                <th>dependences(可选)</th>
+                <td>依赖的其它Package。
+                    在Package中需要导入使用。
+                </td>
+            </tr>
+        </table>
+    </dd>
+    <dt>Package声明基本原则：</dt>
+    <dd>
+        <ol>
+            <li>Package命名不能冲突</li>
+            <li>依据惯例，Package存放物理路径根据其命名空间，以目录树的形式表示命名空间树</li>
+            <li>在同一个运行周期内，Package只会被声明一次，即body只会被执行一次</li>
+            <li>Package的body的执行是同步的，执行完成即完成Package的创建</li>
+            <li>Package不能存在循环依赖关系。<em>如：A依赖B，同时B也依赖A</em></li>
+        </ol>
+    </dd>
+</dl>
+<h4>Library 概念</h4>
+<p>
+Library是一系列Package的集合。在文件组织上，一个Library是一个包含一系列Package文件的目录。
+Library下的Package使用相同的根命名空间。Library根目录即是根命名空间目录。
+</p>
+
+
+
+
+<h3><a name="js-package-extend-concpets">JS Package 扩展概念</a></h3>
+<dl>
+    <dt>Package Id/Namespace</dt>
+    <dl>
+        <ul>
+            <li>
+                JavaScript中通过对象树模拟命名空间，如：
+                <blockquote>
+                    "Root.sub.inner.Foo"
+                </blockquote>
+                表示根变量Root为一个对象，Root的sub属性(Root.sub)为一个对象，
+                Root.sub的inner属性(Root.sub.inner)为一个对象，
+                直到Root.sub.inner对象的Foo属性，才表示这个Package对象。
+            </li>
+            <li>
+                通常情况下根命名空间为一个全局变量。
+                （如<code>Root.sub.inner.Foo</code>中的<code>Root</code>为全局变量）
+            </li>
+            <li>
+                命名空间不能与已有的变量名/对象属性名冲突，如：下例命名空间是不合法的：
+                <blockquote>
+                    Root.sub.constructor.Foo //constructor是每个对象都有的属性 <br />
+                    window.ui.Foo //全局变量名(根命名空间)不能为window，(即window是已经存在的命名)
+                </blockquote>
+            </li>
+        </ul>
+    </dl>
+    <dt>Package/Package Body</dt>
+    <dd>
+        Package对象理论上可以为任何类型的非null/undefined对象。<br />
+        在JavaScript中使用function块来声明Package body块。
+        即，body是一个Package factory函数.
+        <a href="#package-api">见[Package API]</a>
+    </dd>
+    <dt>Package Dependences</dt>
+    <dd>
+        JS Package除了依赖于其它包之外，还会依赖于CSS、HTML等资源文件。
+    </dd>
+    <dt>Package文件的物理存放</dt>
+    <dd>
+        <ul>
+            <li>
+                一个Package表示为一个JS源文件。
+            </li>
+            <li>
+                命名空间树与目录树对应，仅将"."替换"/"，如命名空间
+                <code>Root.sub.inner.</code>
+                对应目录结构为<code>Root/sub/inner/</code>。
+                目录名区分大小写。
+            </li>
+            <li>
+                规约中，包<code>Root.sub.inner.Foo</code>对应JS为
+                <code>Root/sub/inner/Foo.js</code>。<br/>
+                对于包含CSS、HTML等非JS的资源文件的Package，
+                如<code>Kit.ui.Button</code>对应JS路径为
+                <code>Kit/ui/Button/init.js</code>。
+                <br/>
+                作为规约，对于此类Package的建议的目录结构如下：<br />
+                （命名空间 JUI.form.Button 的对应目录结构）<strong>在这里，JUI即是表示为Library</strong>
+                <pre style="width:300px;">
+JUI/
+│ init.js
+│ _xproxy_.html
+└─form/
+    └─Button/
+        │  init.js
+        │  style.css
+        │  tpl.html
+        │
+        └─img/
+                bg.png
+                </pre>
+            </li>
+            <li>
+                每个根命名空间下必须有对应的init.js用于声明该根命名空间对象。
+                如<code>NS.ui.Button</code>中的<code>NS</code>，文件目录结构为：
+                <code>NS/init.js</code>。
+                <strong>该NS命名空间下的其它包都隐式依赖于NS/init.js。</strong>
+                <strong>NS即表示为一个Library</strong>
+            </li>
+            <li>
+         <em>(由于存在NS/Pkg.js与NS/Pkg/init.js两种形式的文件存放形式——后者用于含有HTML,CSS依赖的Pkg，所有...)</em>
+                根命名空间下必须有对应的_nsconf_.js用于声明该空间下Package的加载方式。
+                声明哪些Package使用<code>NS/path/Pkg.js</code>形式的路径，哪些使用
+                <code>NS/path/Pkg/init.js</code>形式的路径，并注明使用
+                <code>NS/path/Pkg/init.js</code>形式的包依赖资源文件的配置。
+                并可声明当前空间预加载哪些包。
+                <strong>该NS命名空间下的其它包都隐式依赖于NS/_nsconf_.js。</strong>
+            </li>
+            <li>
+                命名空间及Package名称必须使用有效的变量名，并且不能以下划线开头。
+                以下划线开头的任何JS文件或目录不被视为JS包。
+            </li>
+        </ul>
+    </dd>
+    <dt>对CoffeeScript的支持</dt>
+    <dd>
+        对于使用CoffeeScript编写的Library，默认按照規約，对应源文件以coffee作为扩展名。
+        即对于Package:<code>NS.ui.Button</code>，对应源文件为<code>NS/ui/Button.coffee</code>，
+        但要求_nsconf_文件必须是JS。
+    </dd>
+</dl>
+
+<h3><a name="package-api">Package API</a></h3>
+<h4>Type Definitions</h4>
+<table border="1">
+    <tr>
+        <th>type Package=Object</th>
+        <td>
+            Package对象可以为任何非null/undefined对象,它将被注册到它对应的命名空间下。
+            <strong>Package对象的_pkgMeta_属性为此Package对应的PacakgeMeta对象,
+            _pkgMeta_属性在PackageBody函数执行完成之后才具有。</strong>
+        </td>
+    </tr>
+    <tr>
+        <th>type PackageId=String</th>
+        <td>
+            格式为"NS.path.Pkg"的命名空间字符串。
+        </td>
+    </tr>
+    <tr>
+        <th>type AssetDeps=Object</th>
+        <td>
+            依赖资源的定义对象。
+            属性名为资源名称，以下划线开头的属性表示此资源只加载，但在JS中不会直接访问资源内容。<br />
+            值为相对文件路径<strong>(通常，将该Package依赖的资源文件放在同一目录，一个JS Package不应该依赖它目录之外的资源文件，即，这里的相对文件路径不应包含"..")</strong>，一般根据扩展名判断文件类型及加载方式。<br />
+            可在文件路径前加":"注明文件类型。如：
+<pre class="brush: js">
+{
+    _style:"css:style.css",//加载style.css，"_"开头的属性表示JS中不会直接读取style.css内容
+    tpl:"str:tpl.html",//加载tpl.html，并且JS中使用
+    messages:"messages.txt",
+    db:"json:db.json"
+}
+</pre>
+            下表为常见支持的文件类型，及其文件扩展名，映射到JS中的对象类型：
+            <table border="1">
+                <tr>
+                    <th>文件类型</th>
+                    <th>扩展名</th>
+                    <th>对应JavaScript对象类型</th>
+                </tr>
+                <tr>
+                    <td>str(纯文本字符串)</td>
+                    <td>.txt .html </td>
+                    <td>String</td>
+                </tr>
+                <tr>
+                    <td>css(CSS样式表)</td>
+                    <td>.css</td>
+                    <td>null
+                        <p><em>(JS中不需要访问CSS内容，可将资源名称设为下划线开头)</em></p>
+                    </td>
+                </tr>
+                <tr>
+                    <td>json(JS对象序列化JSON文件)</td>
+                    <td>.json</td>
+                    <td>Object</td>
+                </tr>
+                <tr>
+                    <td>less(Less格式的 CSS 样式表)</td>
+                    <td>.less</td>
+                    <td>null</td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+    <tr>
+        <th>type Assets=Object</th>
+        <td>
+            依赖资源的结果对象。
+            属性名与在<code>AssetsDeps</code>中定义的对应，但不包含以下划线开头的属性。
+            值为资源类型在JS对应类型的对象，如str类型对应String等。(见上表)。
+        </td>
+    </tr>
+    <tr>
+        <th>type PackageMeta=Object</th>
+        <td>
+            包含Package元信息的对象。 在PackageBody函数执行完成，即Package声明完成之后，可通过Pacakge对象的<code>_pkgMeta_</code>属性访问。在PackageBody函数执行时，PackageBody函数的this对象为Package对应的PackageMeta对象。
+            <dl>
+                <dt>属性列表</dt>
+                <dd>
+                    <ul>
+                        <li>pid:PackageId ，当前Pkg的命名空间ID</li>
+                        <li>relUrl:String ，当前Pkg对应JS文件的相对Library根目录的相对URL(如:NS.ui.Button的relUrl为NS/ui/Button/init.js)</li>
+                        <li>relPath:String ，当前Pkg对应JS文件所在目录的相对Library根目录的路径,以/结尾(即relUrl去掉文件名)</li>
+                        <li>url:String ，当前Pkg对应JS文件的完整URL(当JS文件被合并之后，此URL仍然为合并前单个JS文件的加载URL,见[[<a href="#package-archive-tools-config">build.js 配置</a>]]</li>
+                        <li>path:String ，当前Pkg对应JS文件所在目录的完整路径,以/结尾,即是将url去除了文件名</li>
+                        <li>deps:[]PackageId ，当前Pkg依赖的PackageId数组</li>
+                        <li>assetDeps:AssetDeps ，声明静态依赖的资源文件相对路径列表</li>
+                        <li>[pkg:Package] ，创建完成后的Package对象</li>
+                        <li>[depPkgs:[]Package] ，当前Pkg依赖的Package数组</li>
+                        <li>[body:PackageBody] ，Pkg声明内容体</li>
+                        <li>[assets:Assets] ，声明静态依赖的资源文件内容对象</li>
+                    </ul>
+                </dd>
+            </dl>
+        </td>
+    </tr>
+    <tr>
+        <th>type PackageBody=Function</th>
+        <td>
+        PackageBody为一个Factory函数，执行该函数返回生成的Package对象。
+<pre class="brush: js">
+function (...deps:Package):Package {
+    //....lots of code
+    console.log(this.url,this.path,this.assets);
+    return CreatedPackage;
+}
+</pre>
+        可以从函数参数中获取到对依赖包的引用。
+        <br />函数的this为当前PackageMeta对象，
+        函数的参数依次映射到define声明时列出的依赖包对象。
+        </td>
+    </tr>
+</table>
+
+
+<h4>Package Define</h4>
+<dl>
+    <dt>define(id:PackageId,body:PackageBody):void</dt>
+    <dd>
+        最简单的创建一个不依赖其它包，<strong>只依赖于当前根命名空间</strong>的Package。
+        任何Package都需要依赖它所在的根命名空间包。
+    </dd>
+    <dt>define(id:PackageId,deps:[]PackageId,body:PackageBody):void</dt>
+    <dd>
+        创建一个依赖于deps列表中列出包的Package。
+    </dd>
+    <dt>define(id:PackageId,deps:[]PackageId,assets:AssetDeps,body:PackageBody):void</dt>
+    <dd>
+        创建一个依赖于deps参数中列出包，并依赖于assets参数中列出的资源文件的Package。
+    </dd>
+</dl>
+<blockquote>
+    PackageId始终为define第一个参数。
+    PackageBody声明函数始终为define的最后一个参数。
+</blockquote>
+<h4>导入变量名</h4>
+<p>
+PackageBody Factory函数执行时的this指向当前的PackageMeta（包含当前Package的一些信息）对象，
+在PackageBody的参数将依次映射到deps中列出的Package对象。如下:
+</p>
+<pre class="brush: js">
+Package.define("Root.ui.Button",["Root.ui.Pane","Root.util.Tpl","Root.util.Event"],
+function (Pane,Tpl,Event) {
+    //this为当前PackageMeta对象
+    //Pane为Root.ui.Pane
+    //Tpl对应Root.util.Tpl
+    //依此类推
+    //.....
+});
+</pre>
+<p>当前Package的根命名空间可视为全局变量，所以当前根命名空间不需要显式写在依赖列表中导入,但其它根命名空间则需要导入，如下：</p>
+<pre class="brush: js">
+Package.define("Root.ui.Panel",["Root.ui.Border","dojo"],
+function (Border,dojo) {
+    var a=Root.getName();//Root不需要写在deps列表中
+    var div=dojo.get("oDiv");//dojo为其它根命名空间，需要导入
+    //.....
+});
+</pre>
+
+<h4>Library命名空间配置文件_nsconf_.js</h4>
+<p>默认JS Package文件名称都采用NS/path/Pkg.js形式，对于其它形式的都需要通过_nsconf_.js配置。</p>
+<ul>
+    <li>命名：根命名空间下的Root/_nsconf_.js对应于Root._nsconf_，前后下划线表明它是系统特殊属性，不能显式导入</li>
+    <li>依赖：在Root空间下的所有Package都隐式依赖于_nsconf_.js，其它Package不能显式指明依赖_nsconf_.js。<br/> _nsconf_.js不能依赖其它包。</li>
+    <li>加载顺序：例如加载Root空间下的子Package Root.ui.Button，首先要<strong>手动加载</strong>Root/_nsconf_.js，以确定Root及Root.ui.Button对应JS的加载方式，然后再加载Root/init.js，再加载Button对应的JS，再依次加载它的依赖包。</li>
+    <li><strong>内容限制：_nsconf_包不能依赖其它包，没有PackageMeta(即body函数运行的this对象是没有意义的)，_nsconf_必须为一个对象，并且_nsconf_声明的PackageBody函数必须在任何环境下执行都返回相同的結果，不依赖浏览器环境或服务器环境。最佳实践要求其只包含JSON对象。</strong></li>
+    <li>
+        <strong>对于任何Library的根命名空间下面，都必须有_nsconf_.js文件，对于使用CoffeeScript的Library，也要求
+            _nsconf_.js使用JavaScript编写。例如：</strong>
+        <pre class="brush: js">
+// Gurutech Library 使用CoffeeScript编写
+Gurutech/
+│ init.coffee
+│ _xproxy_.html
+│ _nsconf_.js
+└─form/
+    └─Button/
+        │  init.coffee
+        │  style.less
+        │  tpl.html
+        └─img/
+                bg.png
+        </pre>
+    </li>
+    <li><strong>在开发模式下，必须先手动加载对应Library根目录下的_nsconf_.js文件，然后才能自动加载该Library下的其它Package.</strong></li>
+</ul>
+<dl>
+    <dt>_nsconf_.js配置内容及格式</dt>
+    <dd>
+        <table border="1">
+            <caption>属性概览</caption>
+            <tr>
+                <th>属性(中括号表示可选)</th>
+                <th>说明</th>
+            </tr>
+            <tr>
+                <td>[rootPath:String]</td>
+                <td>
+                    当前Library的根路径，即根命名空间目录父级目录路径(如：_nsconf_.js加载URL为http://statics.abc.com/js/XLib/_nsconf_.js，则rootPath值为http://statics.abc.com/js/)。此属性一般是运行时获得，不需要直接配置（如果_nsconf_.js中配置了此属性，而使用配置的属性，而不动态获得）。<strong>此属性动态获取是通过取页面中script元素的src属性值以/NS/_nsconf_.js结尾的URL，存在URL结尾相同，即以NS/_nsconf_.js结尾，导致获取的值不正确的情形！</strong>
+                </td>
+            </tr>
+            <tr>
+                <td>[libName:String]</td>
+                <td>
+                    当前Library的名称，即根命名空间名称，该属性是运行时自动创建的。
+                </td>
+            </tr>
+            <tr>
+                <td>[useLoaders:Object]</td>
+                <td>指明当前Library下的Package使用的Asset Loaders。
+                    当前Library下的Package的文件存放不是默认的NS/path/Package.js格式时，需要配置此选项。
+                </td>
+            </tr>
+            <tr>
+                <td>[defineLoaders:Object]</td>
+                <td>定义一个非内置的loader。
+                    自定义loader只支持自定义AssetDeps，并且asset类型也必须是内置支持的类型。
+                    大部分情况不需要使用自定义的loader。
+                </td>
+            </tr>
+            <tr>
+                <td>[drinkCoffee:Boolean]</td>
+                <td>当前Library使用CoffeeScript编写。即，源文件使用“.coffee”作为扩展名，而不是默认的“.js”.
+                    <br />
+                    <strong>注意，在开发模式下，如果使用CoffeeScript，必须还要手动加载对应的CoffeeScript解释器。参见下面[<a href="#dev-debug-mode">开发模式调试及部署</a>]</strong>
+                    <br />
+                    <em>只能配置整个Library使用或不使用CoffeeScript,同一个Library既使用JS又使用CoffeeScript太混乱的，谁要是这么混合写就罚他做10个Demo和部署更新10次服务器。</em>
+                </td>
+            </tr>
+        </table>
+    </dd>
+    <dd>
+        <table border="1">
+            <caption>系统内置loader</caption>
+            <tr>
+                <th>loader名称</th>
+                <th>说明</th>
+            </tr>
+            <tr>
+                <td>base</td>
+                <td>默认的Loader，不需要配置，只包含Script，文件形式NS/path/pkg.js。</td>
+            </tr>
+            <tr>
+                <td>archive</td>
+                <td>基础的使用目录结构的Package loader，对于<code>NS.ui.Button</code>使用路径<code>NS/ui/Button/init.js</code>。注意根Package并不需要手动配置为archive。（即，NS/init.js是默认的，不需要配置。）
+    archive是最基本的loader，仅表示使用Root/path/Pkg/init.js形式加载JS，没有依赖资源文件，
+    但init.js中定义时仍然可以通过define的assetDeps参数另外单独配置依赖的assets。
+                </td>
+            </tr>
+            <tr>
+                <td>wui</td>
+                <td>Web UI Package。带有CSS样式及HTML模板文件的archive形式的Package。定义为：
+                <pre class="brush: js">
+/*
+NS.ui.Button对应为
+NS/ui/Button/
+            - init.js
+            - style.css
+            - tpl.html
+*/
+// 对应PackageMeta
+{
+    assetDeps:{
+        _style:"style.css",
+        tpl:"tpl.html"
+    }
+}
+                </pre>
+                </td>
+            </tr>
+            <tr>
+                <td>wui4ie6</td>
+                <td>特殊针对IE6的web ui package。带有HTML模板文件及针对IE6浏览器及其它浏览器的CSS样式。
+                    因为IE6是非主流，所以需要特殊对待。
+                <pre class="brush: js">
+/*
+NS.ui.Button对应为
+NS/ui/Button/
+            - init.js
+            - style.css
+            - ie6.css
+            - tpl.html
+*/
+// 对应PackageMeta
+{
+    assetDeps:{
+        _style: IE6?"ie6.css":"style.css",
+        tpl:"tpl.html"
+    }
+}
+                </pre>
+                </td>
+            </tr>
+            <tr>
+                <td>lesswui</td>
+                <td>同wui，只是style使用less css</td>
+            </tr>
+            <tr>
+                <td>lesswui4ie6</td>
+                <td>同wui4ie6，只是style使用less css</td>
+            </tr>
+        </table>
+    </dd>
+    <dd>
+
+<pre class="brush: js">
+//文件XLib/_nsconf_.js基本格式
+Package.define("XLib._nsconf_",function () {
+    return {};//返回空对象，最简单的情况,不做任何配置
+    //表示该命名空间下所有JS Pkg都使用XLib/path/Pkg.js形式
+});
+
+//詳細配置
+Package.define("XLib._nsconf_",function () {
+    return {
+        //声明当前Library下的Package使用的loader
+        //只有以Dir/init.js形式的Package才需要使用loaders
+        //Root/path/Pkg.js形式的Package不需要做任何配置(也不能做任何配置)
+        //useLoaders键名为loader名称，值为不包括根命名的命名空间数组
+        //不能定义一个Package使用多种loader
+        useLoaders:{
+            archive:["flash","net.PostMsg"],//表示XLib.flash命名空间下的所有包使用archive loader
+            //(即JS文件路径为XLib/flash/Pkg/init.js). XLib.net.PostMsg包(这里单独配置一个Pkg)也使用这种加载方式
+            wui:["ui.forms","ui.ctrls"],//表示XLib.ui.forms与XLib.ui.ctrls下的Pkg使用wui loader
+            wui4ie6:["widgets"] //XLib.widgets下使用带判断ie6对应css的加载
+            dbcom:["data"] //XLib.data.* 使用dbcom loader
+        },
+
+        //自定义loader
+        //loaders键名为合法的属性名，不能以下划线开头
+        //值为包含assetDeps(其依赖的资源文件列表)属性的对象(同Package.define中的assetDeps)
+        //一般情形只需要使用内置标准loader,不需要在_nsconf_.js中自定义另外的loader
+        defineLoaders:{
+            //注意，凡是使用loader的Package，都是使用Dir/init.js形式存储的
+            dbcom:{ //声明一个包含JSON数据的控件的加载器
+                assetDeps:{
+                    db:"db.json"
+                }
+            }
+        }
+    };
+});
+</pre>
+    </dd>
+</dl>
+
+<p style="font-size:large;">
+  <strong>在开发模式下使用wui及wui4ie6之类的loader时，可能遇到跨域加载tpl.html的情形，在这种情况下，对于支持
+  HTTP Header: Access-Control-Allow-Origin "*";的浏览器，可以通过服务器端设置此header告诉浏览器允许跨域访问，如Nginx中可以添加配置：<code>add_header Access-Control-Allow-Origin "*";</code>(仅开发环境)。对于不支持此Header的浏览器，如IE6，则需要在Library根目录下放置一个_xproxy_.html文件（可软链接指向src/Package/_xproxy_.html文件），通过此文件作中转代理进行跨域tpl.html文件加载.
+  </strong>
+  <br />
+  <em>_xproxy_.html支持两种跨域加载方式：postMessage(IE8及其它支持此特性的浏览器使用此方法)和iframe.contentWindow.name(仅IE6和IE7);</em>
+</p>
+
+
+<h3><a name="package-examples">Package Examples</a></h3>
+<dl>
+    <dt>单一的Package NS.util</dt>
+    <dd>
+<pre class="brush: js">
+// NS/init.js 内容
+Package.define("NS",function () {
+    return {
+        getName:function () {
+            return XXX;
+        }
+    };
+});
+
+// NS/util.js 内容
+Package.define("NS.util",function () {
+    var util={
+        //lots of code
+
+    };
+    //NS自动对子Package可访问
+    util.ownerName=NS.getName();
+    return util;
+});
+</pre>
+    </dd>
+    <dt>带有deps的Package NS.net.URL</dt>
+    <dd>
+<pre class="brush: js">
+//文件NS/net/URL.js内容
+Package.define("NS.net.URL",["MT.string.Fields"],function (Fields) {
+    Fields.split(s);
+});
+</pre>
+    </dd>
+    <dt>形式为Dir/init.js的Package NS.charts.FlashChart</dt>
+    <dd>
+<pre class="brush: js">
+//省略NS/init.js
+//文件NS/_nsconf_.js内容
+Package.define("NS._nsconf_",function () {
+    return {
+        useLoaders:{
+            archive:["charts"]
+        }
+    };
+});
+
+//文件NS/charts/FlashChart/init.js内容
+Package.define("NS.charts.FlashChart",["MT.url.Financial"],function (Financial) {
+    var flashUrl=this.path+"flash/chart.swf";//通过PackageMeta#path获取flash文件的位置
+    //lots of code
+    return FlashChart;
+})
+</pre>
+    </dd>
+    <dt>使用wui loader的NS.ui.Button</dt>
+    <dd>
+<pre class="brush: js">
+//文件NS/_nsconf_.js内容
+Package.define("NS._nsconf_",function () {
+    return {
+        useLoaders:{
+            wui:["ui"]
+        }
+    };
+});
+/* NS/ui/Button目录结构为
+NS/ui/Button/
+    -init.js
+    -style.css
+    -tpl.html
+*/
+//NS/ui/Button/init.js文件内容
+Package.define("NS.ui.Button",["MT.ui.Component"],function (Component) {
+    //通过this.assets.tpl访问tpl.html内容
+    var bgImgUrl=this.path+"img/bg.png",tpl=this.assets.tpl;
+    function Button(opt) {
+        //也可以通过当前Package对象的_pkgMeta_属性访问assets
+        this.tpl=String2Dom(opt.tpl || Button._pkgMeta_.assets.tpl);
+    }
+    return Button;
+})
+</pre>
+    </dd>
+    <dt>自定义loader</dt>
+    <dd>
+<pre class="brush: js">
+// NS/_nsconf_.js 内容
+Package.define("NS._nsconf_",function () {
+    return {
+        defineLoaders:{
+            dataBind:{
+                assetDeps:{
+                    data:"data.json"
+                }
+            }
+        },
+        useLoaders:{
+            dataBind:["data"],
+            archive:["util.IpDetect"]
+        }
+    }
+});
+
+//NS/data/User/init.js内容
+/*
+NS/data/User/
+    -init.js
+    -data.json
+*/
+Package.define("NS.data.User",function () {
+    var users=this.assets.data;
+    function User() {}
+    console.log(User._pkgMeta_); //Error:此时_pkgMeta_属性是不存在的
+    return User;
+});
+
+//NS/util/IpDetect/init.js内容 (在Package.define时自定义assets)
+/*
+NS/util/IpDetect/
+    -init.js
+    -ip.txt
+*/
+Package.define("NS.util.IpDetect",{ //assets
+    ipData:"ip.txt"
+},function () {
+    var ipArray=this.assets.ipData.split("|");
+});
+
+</pre>
+    </dd>
+</dl>
+<h3><a name="package-build-concepts">Package Build概念</a></h3>
+
+<p>
+    通常从JS文件的加载性能上考虑，需要将使用到的JS包合并到一个文件中，并对其进行压缩。
+    合并/优化/压缩指定的JS Package涉及以下几点内容：
+    <ul>
+        <li>将所有列出的JS包<strong>及其依赖包</strong>合并到一个文件中</li>
+        <li>作为优化措施，保证JS包按依赖关系先后顺序合并，优化Package.define调用(RTFSC)</li>
+        <li>合并JS Package依赖的资源文件，不同类型的资源文件分别合并</li>
+  <li>合并之后的JS访问到的PackageMeta#url及path还是原来源代码文件的url和path.</li>
+    </ul>
+    JS依赖资源文件合并方式：
+    <ul>
+        <li>将LESS CSS转换到CSS，将CoffeeScript转换到JavaScript</li>
+        <li>CSS文件：将所有依赖的CSS文件合并到一个CSS文件中，<strong>并且将原有的CSS中相对URL转换成绝对的URL</strong>。</li>
+        <li>CSS For IE6：特殊loader wui4ie6，会将针对IE6的CSS合并到一个CSS文件，针对其它浏览器的CSS合并到另一个CSS文件</li>
+        <li>str类型与json类型直接合并到JS文件中，转换成对应的JS代码</li>
+        <li>默认Package.core.js会插入到所有JS最前面</li>
+        <li>Package loaders及CoffeeScript和LESS CSS解析相关的JS默认不会插入到合并的JS中，如果需要合并到其中，需要手动配置</li>
+    </ul>
+</p>
+
+<h3><a name="package-build-tools-config">Package Build工具及配置</a></h3>
+<p>配置文件使用JSON格式。但事实上config.json使用eval执行，可以并不严格按照JSON语法，如可以添加注释等。</p>
+<pre class="brush: js">
+//:config.json
+//所有相对文件路径均相对于JSON文件的位置
+{
+    //列出用到的Library的_nsconf_.js文件路径列表
+   
+    "nsconfs":[ //#REQUIRED
+        "src/statics/js/XLib/_nsconf_.js",
+        "src/statics/js/Motu/_nsconf_.js"
+    ],
+    //static域名配置，表示Library的根路径，
+    //如对于NS.ui.Button，对应URL为http://jex.im/js/NS/ui/Button/init.js，
+    //则staticUrls则配置为http://jex.im/js/
+    //此这路径将替换nsconf的rootPath
+    "staticUrls":{ //#REQUIRED
+        "defaults":"http://jex.im/js/",//默认的static路径
+        //可以不同的Lib配置不同的根路径
+        "NS":"http://jex.im/third-party-js/"
+    },
+    //列出需要打包的Package，但不需要列出它的依赖包
+    //支持结尾的"*"，获取该命名空间下的所有Package
+    "includes":[//#REQUIRED
+        "Package.fetchers.fetchText" //将fetchText也加载进去，以跨域加载tpl.html
+        "Motu.apps.*"
+    ],
+    //是否将Package/init.js的内容也打包进去，默认exportMode为all及deps时打包
+    //当exportMode为includes时，此选项不起作用
+    "embedPackageCore":true,
+    //列出运行时环境或preload.js中已经存在，不需要获取依赖的包(在打包里不会去找这个Package的代码)
+    "imported":[
+        "dojo.*"
+    ],
+    //需要在所有Package之前加载的JS文件(支持CoffeeScript)
+    //按这里列出的顺序加载
+    "preloadScripts":[
+        "src/statics/js/preload.js",
+    ],
+    //在所有Package代码之后加载的JS文件（此时所有Package都完成了声明）(支持CoffeeScript)
+    //按这里列出的顺序加载
+    "postloadScripts":[
+        "src/statics/js/lang-Zh_CN.js",
+        "src/statics/js/postload.js"
+    ],
+    //在所有CSS之前按顺序加载的样式文件(支持LESS CSS)
+    "preloadStyles":[ 
+        "src/statics/css/reset.css"
+    ],
+    //在所有CSS文件之后按顺序加载的样式文件(Also LESS)
+    "postloadStyles":[ 
+        "src/statics/css/theme-blue.css"
+    ],
+
+    //对输出的JS和CSS文件进行压缩
+    "compress":true,
+
+    //导出模式
+    /*
+    支持模式：
+    includes    只导出includes项列出的Package的JS和CSS
+    deps        只导出includes项列出的Package依赖的Package的JS和CSS
+    all         导入includes及其依赖Package的JS和CSS
+    适用情形：
+    因为apps.js和base-lib.js更新频率不一样，将依赖的base-lib.js合并到另一个文件中，
+    使用较大的Expires头，对apps.js使用较小的Expires头
+    */
+    "exportMode":"all"
+}
+</pre>
+<h6>build.js工具的使用</h6>
+<pre>
+./build.js config.json js all.min.js  #按配置合并所有JS到all.min.js
+./build.js config.json css all.min.css   #合并所有CSS到all.min.css
+./build.js config.json css4ie6 ie6-all.min.css #合并特殊的wui4ie6的ie6.css到ie6-all.min.css
+</pre>
+<h3><a name="dev-debug-mode">开发模式调试及部署</a></h3>
+<p>
+在开发模式下，页面直接加载需要使用到的Package的代码，其依赖JS及CSS、HTML文件会自动加载。
+<br />
+作为一种设计模式，整个网页的主入口程序可作为MainApp，MainApp再声明依赖其它组件，依赖的组件将被自动加载。
+</p>
+<pre class="brush: js">
+<!--
+//开发模式下嵌入HTML的代码
+//Package.js的核心代码必须先手工加载
+<script src="statics/jslibs/Package/init.js"></script>
+//如果依赖HTML文件，则需要加载fetchText扩展用于跨域加载HTML文件
+<script src="statics/jslibs/Package/fetchers/fetchText.js"></script>
+<script>
+  Package.imports(["YourLib.apps.MainApp"],function (MainApp) {
+    var application=new MainApp();
+    application.run();
+  });
+</script>
+-->
+</pre>
+<p>部署到生产环境</p>
+<ol>
+  <li>将statics目录全部上传到静态文件服务器</li>
+  <li>假设statics目录的URL为 http://statics.example.com/ ; JS Library的根目录为statics/jslibs/ ;则build config.json中staticsUrl的default则可配置成 http://statics.example.com/jslibs/;</li>
+  <li>使用build.js生成all.min.js和all.min.css</li>
+  <li>修改HTML嵌入的代码为：
+  <pre class="brush: js">
+<!--
+<link type="text/css" rel="stylesheet" href="http://statics.example.com/css/all.min.css" />
+<script src="http://statics.example.com/jslibs/all.min.js"></script>
+<script>
+var application=new YourLib.apps.MainApp();
+application.run();
+</script>
+-->
+  </pre>
+  </li>
+</ol>
+
+<dl>
+  <dt><strong>部署注意点</strong></dt>
+  <dd>
+  <ol>
+    <li>虽然JS和CSS都合并到了一个文件中，但CSS中引用的图片之类的资源仍然需要上传到静态服务器，并且路径和开发时的访问路径一样。但各个JS的源代码及CSS源代码可以不上传。</li>
+    <li>用于跨域访问的_xproxy_.html可以不上传到生产环境用的开放的静态服务器（除非你需要在生产环境上调试代码。），为了安全性，可以禁止访问_xproxy_.html</li>
+    <li>合并之后的JS中，每个Package的PackageMeta对象的url及path之类的属性仍然是源代码所在位置的URL，以此path仍能正常获得该Package目录下的其它资源文件的URL</li>
+  </ol>
+  </dd>
+</dl>
+
+<script>
+SyntaxHighlighter.all();
+</script>
+<hr style="margin:80px auto;" />
+</body>
+</html>

@@ -1,0 +1,58 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<title>Test</title>
+<style type="text/css">
+body {
+background:lightblue;
+}
+div {
+  border:2px ridge green;
+  margin:20px;
+  padding:30px;
+}
+</style>
+</head>
+<body>
+
+  <h1 id="title">Test</h1>
+  <div id="oDiv"></div>
+
+  <script src="http://server/data/projects/package-js/src/Package/init.js"></script>
+  <script src="http://server/data/projects/package-js/src/Package/fetchers/fetchText.js"></script>
+  <script src="http://server/data/projects/package-js/src/Test/_nsconf_.js"></script>
+  <script src="http://server/data/projects/package-js/src/Test/Window/init.js"></script>
+  <hr />
+
+<script>
+  Package.imports([
+    'Test.query',
+    'Test.ui.Button',
+    'Test.ui.Ct',
+    'Test.ui.Form',
+    'Test.$',
+    'Test.Window'
+  ],function (
+    query,
+    Button,
+    Ct,
+    Form,$,Window) {
+
+      var div=document.getElementById('oDiv')
+      new Button(div);
+      new Ct(div);
+      new Form(div);
+      query('title').innerHTML="Title changed!!!!!!!!!!"+$.name+'|'+Window.name;
+
+  });
+
+
+
+
+
+
+</script>
+</body>
+</html>
